@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+
+	<data>
+		<record model="ir.ui.view" id="agtis_nfe_ind_account_invoice_search">
+			<field name="name">agtis.nfe.ind.account.invoice.invoice_search</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.view_account_invoice_filter" />
+			<field name="arch" type="xml">
+				<data>
+					<filter name="unpaid" position="after">
+							<separator orientation="vertical"/>
+							<filter name="ind_shipment" string="Remessa" domain="[('ind_is_shipment','=','True')]"/>
+							<filter name="ind_return" string="Retorno" domain="[('ind_is_return','=','True')]"  />
+						    <filter name="ind_charging" string="Cobrança" domain="[('ind_is_charging','=','True')]"/>
+					</filter>
+				</data>
+			</field>
+		</record>
+		
+		<!--
+		<record model="ir.ui.view" id="agtis_nfe_ind_account_invoice_tree">
+			<field name="name">agtis.nfe.ind.account.invoice.invoice_tree</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.invoice_tree" />
+			<field name="arch" type="xml">
+				<data>
+					<field name="period_id" position="after">
+							<field name="ind_is_return" invisible="1"/>
+							<field name="ind_is_charging" invisible="1"/>
+							<field name="ind_is_shipment" invisible="1"/>
+					</field>
+				</data>
+			</field>
+		</record> 
+			attrs="{'invisible':[('own_invoice','=',False)]}"
+		-->
+
+		<record model="ir.ui.view" id="agtis_nfe_ind_account_invoice_line_view">
+			<field name="name">agtis.nfe.ind.account.invoice.line.view</field>
+			<field name="model">account.invoice.line</field>
+			<field name="inherit_id" ref="l10n_br_account.view_l10n_br_account_invoice_line_form" />
+			<field name="arch" type="xml">
+				<data>
+					<field name="uos_id" position="replace">
+							<field name="uos_id" on_change="uos_id_change(product_id, uos_id, quantity, name, parent.type, parent.partner_id, 
+								parent.fiscal_position, price_unit, parent.address_invoice_id, parent.currency_id, context, parent.company_id
+								parent.fiscal_operation_category_id, parent.fiscal_operation_id)" nolabel="1"/>
+					</field>
+				</data>
+			</field>
+		</record>
+		
+		
+		
+
+		<record model="ir.ui.view" id="agtis_nfe_ind_account_invoice_spl_view">
+			<field name="name">agtis.nfe.ind.account.invoice.spl.view</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.invoice_supplier_form" />
+			<field name="arch" type="xml">
+				<data>
+					<button name="%(account.action_account_invoice_refund)d" position="replace">
+						<button name="%(action_inv_nfe_select_return_view)d" type="action" states="open" string="Retorno de industrialização" icon="gtk-execute"/>
+			    	</button>
+					<notebook>
+						<page string="Industrialização">
+							<field name="ind_is_shipment" invisible="1" />
+							<field name="ind_is_return" invisible="1" />
+							<field name="ind_is_charging" invisible="1" />
+							
+							<!--
+							 -->
+							 
+							<group attrs="{'invisible':[('ind_is_shipment','=',False),('ind_is_charging','=',False)]}">
+							
+								<!-- Em uma nota de remessa quero ver os retornos dela -->
+								<group attrs="{'invisible':[('ind_is_shipment','=',False)]}">
+									<label string="Retornos para esta Remessa"/>
+								</group>
+							
+								<!-- Em uma nota de cobrança quero ver os retornos que estao sendo cobrados -->
+								<group attrs="{'invisible':[('ind_is_charging','=',False)]}">
+									<label string="Retorno cobrado nesta Fatura de Cobrança" />
+								</group>
+								
+								<newline/>
+								<field name="ind_return_invoice_ids" nolabel="1" colspan="4">	
+									<tree>
+										<field name="internal_number"/>
+										<field name="document_serie_id"/>
+										<field name="fiscal_operation_id"/>
+										<field name="date_invoice"/>
+										<field name="ind_charging_state"/>
+									</tree>
+								</field>
+								<newline/>
+							</group>
+							
+							<!-- Em uma nota de retorno quero ver as remessas e as cobranças dela -->
+							<group attrs="{'invisible':[('ind_is_return','=',False)]}" >
+								<label string="Remessas desta Fatura de Retorno"/>
+								<newline/>
+								<field name="ind_shipment_invoice_ids" nolabel="1" colspan="4">	
+									<tree>
+										<field name="internal_number"/>
+										<field name="vendor_serie"/>
+										<field name="fiscal_operation_id"/>
+										<field name="date_invoice"/>
+										<field name="state"/>
+									</tree>
+								</field>
+								<newline/>
+								
+								<label string="Cobranças desta Fatura de Retorno"/>
+								<newline/>
+								<field name="ind_charging_invoice_ids" nolabel="1" colspan="4">	
+									<tree>
+										<field name="internal_number"/>
+										<field name="document_serie_id"/>
+										<field name="fiscal_operation_id"/>
+										<field name="date_invoice"/>
+										<field name="state"/>
+									</tree>
+								</field>
+							</group>
+							
+						</page>
+					</notebook>
+				</data>
+			</field>
+		</record>
+		
+		<record model="ir.ui.view" id="agtis_nfe_ind_account_invoice_cost_view">
+			<field name="name">agtis.nfe.ind.account.invoice.cost.view</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="account.invoice_form" />
+			<field name="arch" type="xml">
+				<data>
+					<button name="%(account.action_account_invoice_refund)d" position="replace">
+						<field name="ind_is_shipment" invisible="1" />
+						<field name="ind_is_charging" invisible="1" />
+						<button name="create_return_invoice" type="object" 
+							string="Retorno de industrialização" icon="gtk-execute"
+							attrs="{'invisible':['|',('state','!=','open'),('ind_is_shipment','=',False)]}"
+							/>
+						<button name="create_charging_invoice"  type="object" string="Gerar Cobrança" icon="gtk-execute"
+							attrs="{'invisible':['|',('state','not in',['open','paid']),('ind_is_return','!=',True)]}"
+							/>
+			    	</button> 
+					<notebook>
+						<page string="Industrialização">
+							<field name="ind_is_shipment" invisible="1" />
+							<field name="ind_is_return" invisible="1" />
+							<field name="ind_is_charging" invisible="1" />
+							
+							<!--
+								
+							 -->
+							 
+							<group attrs="{'invisible':[('ind_is_shipment','=',False),('ind_is_charging','=',False)]}">
+							
+								<!-- Em uma nota de remessa quero ver os retornos dela -->
+								<group attrs="{'invisible':[('ind_is_shipment','=',False)]}">
+									<label string="Retornos para esta Remessa"/>
+								</group>
+							
+								<!-- Em uma nota de cobrança quero ver os retornos que estao sendo cobrados -->
+								<group attrs="{'invisible':[('ind_is_charging','=',False)]}">
+									<label string="Retorno cobrado nesta Fatura de Cobrança" />
+								</group>
+								
+								<newline/>
+								<field name="ind_return_invoice_ids" nolabel="1" colspan="4">	
+									<tree>
+										<field name="internal_number"/>
+										<field name="document_serie_id"/>
+										<field name="fiscal_operation_id"/>
+										<field name="date_invoice"/>
+										<field name="state"/>
+									</tree>
+								</field>
+								<newline/>
+							</group>
+							
+							<!-- Em uma nota de retorno quero ver as remessas e as cobranças dela -->
+							<group attrs="{'invisible':[('ind_is_return','=',False)]}" >
+								<label string="Remessas desta Fatura de Retorno"/>
+								<newline/>
+								<field name="ind_shipment_invoice_ids" nolabel="1" colspan="4">	
+									<tree>
+										<field name="internal_number"/>
+										<field name="vendor_serie"/>
+										<field name="fiscal_operation_id"/>
+										<field name="date_invoice"/>
+										<field name="state"/>
+									</tree>
+								</field>
+								<newline/>
+								
+								<label string="Cobranças desta Fatura de Retorno"/>
+								<newline/>
+								<field name="ind_charging_invoice_ids" nolabel="1" colspan="4">	
+									<tree>
+										<field name="internal_number"/>
+										<field name="document_serie_id"/>
+										<field name="fiscal_operation_id"/>
+										<field name="date_invoice"/>
+										<field name="state"/>
+									</tree>
+								</field>
+							</group>
+							
+						</page>
+					</notebook>
+				</data>
+			</field>
+		</record>
+		
+		
+		
+		<record model="ir.ui.view" id="agtis_nfe_ind_fiscal_operation_form">
+			<field name="name">agtis.nfe.ind.account.fiscal.operation.form</field>
+			<field name="model">l10n_br_account.fiscal.operation</field>
+			<field name="inherit_id" ref="l10n_br_account.view_l10n_br_account_fiscal_operation_form" />
+			<field name="arch" type="xml">
+				<data>
+					<field name="fiscal_type" position="after">
+							<field name="account_id" string="Conta"/>
+					</field>
+				</data>
+			</field>
+		</record>
+		
+			
+		
+	</data>
+
+</openerp>

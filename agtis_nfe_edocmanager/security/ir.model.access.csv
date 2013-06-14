@@ -1,0 +1,5 @@
+"id","name","model_id:id","group_id:id","perm_read","perm_write","perm_create","perm_unlink"
+"access_account_invoice_nfe_sefaz_inutiliza","access_account_invoice_nfe_sefaz_inutiliza","model_account_invoice_nfe_sefaz_inutiliza","account.group_account_invoice",1,1,1,1
+"access_account_nfe_email","access_account_nfe_email","model_account_nfe_email","account.group_account_invoice",1,1,1,1
+"access_account_invoice_nfe_batch","access_account_invoice_nfe_batch","model_account_invoice_nfe_batch","account.group_account_invoice","1","1","1","1"
+"access_res_company","access_res_company","base.model_res_company","account.group_account_invoice","1","1","1","1"

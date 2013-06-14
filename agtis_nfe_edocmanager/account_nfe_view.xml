@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+	<data>
+
+		<record model="ir.ui.view" id="agtis_nfe_edoc_account_invoice_form_view">
+			<field name="name">agtis.nfe.edoc.account.invoice.form.view</field>
+			<field name="model">account.invoice</field>
+			<field name="inherit_id" ref="l10n_br_account.view_l10n_br_account_invoice_form5" />
+			<field name="arch" type="xml">
+			
+                    <button name="invoice_open" position="replace" >
+                        <button name="invoice_open" invisible="1" />
+                        <button name="nfe_edoc_send" type="object" states="sefaz_export" string="Enviar Agora" icon="gtk-go-forward" 
+                            attrs="{'invisible': [['state', 'not in', ['sefaz_export']]]}" />
+
+				    </button>
+
+			</field>
+		</record>
+
+
+		<record model="ir.ui.view" id="agtis_nfe_edoc_account_invoice_form_view2">
+			<field name="name">agtis.nfe.edoc.account.invoice.form.view2</field>
+			<field name="model">account.invoice</field>
+			<!-- <field name="inherit_id" ref="account_cancel.invoice_form_cancel_inherit" /> -->
+			<field name="inherit_id" ref="l10n_br_account.view_l10n_br_account_invoice_form6" />
+			<field name="arch" type="xml">
+
+                    <button name="invoice_cancel" position="replace" >
+						<button name="invoice_cancel" invisible="1" />
+						<button name="action_invoice_cancel_redir" type="object" states="draft,proforma2,sale,sefaz_export,sefaz_exception,open" string="Cancel" icon="gtk-cancel"/>
+				    	<button name="nfe_send_mail" type="object"  string="Enviar por email" icon="terp-mail-" attrs="{'invisible':['|',('fiscal_document_nfe','=',False),('state','not in','open')]}" 
+				    		context="{'sendnow':True}" />
+			    	</button>
+
+			</field>
+		</record>
+	
+		<record model="ir.ui.view" id="agtis_sefaz_nfe_tree_view">
+		   <field name="name">agtis.sefaz.nfe.tree.view</field>
+		   <field name="model">account.invoice</field>
+		   <field name="type">tree</field>
+		   <field name="priority">40</field>
+		   <field name="arch" type="xml">
+			 <tree string="Processamento de NF-e">
+				<field name="date_invoice" group="True"/>
+				<field name="internal_number"/>
+				<field name="document_serie_id"/>
+				<field name="partner_id"/>
+				<field name="type"/>
+				<field name="state"/>
+				<field name="nfe_status"/>
+				<button name="nfe_edoc_send" type="object" states="sefaz_export,sefaz_exception" string="Enviar" icon="STOCK_GO_FORWARD"
+				    		context="{'sendnow':True}" />
+				<button name="nfe_edoc_consult" type="object" states="sefaz_out" string="Consultar" icon="STOCK_REFRESH" />
+				<button name="%(action_agtis_sefaz_nfe_cancel_view)d" type="action" states="open,paid" string="Cancelar Nfe na Sefaz" icon="STOCK_CANCEL" />
+				<button name="nfe_send_mail" type="action" states="open,paid" string="Enviar NF-e por email" icon="STOCK_MEDIA_PLAY" />
+				<field name="nfe_access_key"/>
+			</tree>
+		    </field>
+		</record>
+
+
+		<record model="ir.ui.view" id="agtis_sefaz_nfe_filter_view">
+		   <field name="name">agtis.sefaz.nfe.filter.view</field>
+		   <field name="model">account.invoice</field>
+		   <field name="type">search</field>
+		   <field name="arch" type="xml">
+			 <search string="Processamento de NF-e">
+				<field name="internal_number"/>
+				<field name="document_serie_id"/>
+				<field name="date_invoice"/>
+				<field name="partner_id"/>
+				<field name="type"/>
+				<field name="nfe_status"/>
+				<field name="nfe_access_key"/>
+			</search>
+		    </field>
+		</record>
+
+			
+		<record model="ir.actions.act_window" id="agtis_sefaz_nfe_action">
+		    <field name="name">Processamento NF-e</field>
+		    <field name="view_id" ref="agtis_sefaz_nfe_tree_view"/>
+		    <field name="search_view_id" ref="agtis_sefaz_nfe_filter_view"/>
+		    <field name="domain">['&amp;', '&amp;', ('state','in', ['sefaz_export','sefaz_exception','sefaz_out','open','paid','sefaz_cancel']), ('fiscal_document_nfe','=',True), ('own_invoice','=',True) ]</field>
+<!--		    <field name="context">{"context dictionary (max 250 characters)"}</field> -->
+		    <field name="res_model">account.invoice</field>
+		    <field name="view_type">form</field>
+		    <field name="view_mode">tree</field>
+		</record>
+	
+
+		<menuitem id="account.menu_finance" name="Financeiro" />
+		<menuitem id="menu_sefaz_nfe"
+		  parent="account.menu_finance"
+		  name="SEFAZ NF-e"
+		  sequence="6" />
+		  
+		  
+		<menuitem id="account.menu_finance" name="Financeiro" />
+		<menuitem id="menu_sefaz_nfe_acomp"
+		  parent="menu_sefaz_nfe"
+		  name="Acompanhamento NF-e"
+		  action="agtis_sefaz_nfe_action"
+		  sequence="6" />
+		  
+	   <menuitem id="menu_sefaz_nfe_initilizacao"
+		  parent="menu_sefaz_nfe"
+		  name="Inutilização de Nfe"
+		  action="action_agtis_sefaz_nfe_inutiliza_view"
+		  sequence="7" />
+		  
+	   <menuitem id="account.menu_finance" name="Financeiro" />
+		<menuitem id="account.menu_finance_bank_and_cash"
+		  parent="account.menu_finance"
+		  sequence="5" />
+		  
+
+		  
+	</data>
+
+</openerp>

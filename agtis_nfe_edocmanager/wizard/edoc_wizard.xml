@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+	<data>
+
+		<record model="ir.ui.view" id="account_nfe_email_view">
+		   <field name="name">account.nfe.email.form</field>
+		   <field name="model">account.nfe.email</field>
+		   <field name="type">form</field>
+		   <field name="arch" type="xml">
+			 <form >
+				<button icon="gtk-execute" string="Ok" name="teste" type="object"/>
+			</form>
+		    </field>
+		</record>
+		
+		<record id="action_account_nfe_email_view" model="ir.actions.act_window">
+            <field name="name">Importa notas de entrada</field>
+            <field name="res_model">account.nfe.email</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="account_nfe_email_view"/>
+            <field name="target">new</field>
+        </record>
+		
+	
+		
+		<record model="ir.ui.view" id="agtis_sefaz_nfe_inutiliza_view">
+		   <field name="name">account.invoice.nfe.sefaz.inituliza.form</field>
+		   <field name="model">account.invoice.nfe.sefaz.inutiliza</field>
+		   <field name="type">form</field>
+		   <field name="arch" type="xml">
+			 <form >
+				<field colspan="1" name="ano" />
+				<field colspan="1" name="serie" />
+				<field colspan="1" name="faixaini" />
+				<field colspan="1" name="faixafim" />
+				<field colspan="4" name="justificativa" />
+				<group colspan="4" col="6">
+				        <label string ="" colspan="2"/>
+				        <button icon="gtk-cancel" special="cancel" string="Fechar"/>
+				        <button icon="gtk-execute" string="Ok" name="do_nfe_inutiliza" type="object"/>
+				</group>
+			</form>
+		    </field>
+		</record>
+		
+		        
+        <record id="action_agtis_sefaz_nfe_inutiliza_view" model="ir.actions.act_window">
+            <field name="name">Inutilização de notas</field>
+            <field name="res_model">account.invoice.nfe.sefaz.inutiliza</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="agtis_sefaz_nfe_inutiliza_view"/>
+            <field name="target">new</field>
+        </record>
+		
+		
+		
+		<record model="ir.ui.view" id="agtis_sefaz_nfe_cancel_view">
+		   <field name="name">account.invoice.nfe.sefaz.cancel.form</field>
+		   <field name="model">account.invoice.nfe.sefaz.cancel</field>
+		   <field name="type">form</field>
+		   <field name="priority">40</field>
+		   <field name="arch" type="xml">
+			 <form >
+				<field colspan="4" name="justificativa" />
+				<group colspan="4" col="6">
+				        <label string ="" colspan="2"/>
+				        <button icon="gtk-cancel" special="cancel" string="Fechar"/>
+				        <button icon="gtk-execute" string="Ok" name="do_nfe_cancel" type="object"/>
+				</group>
+			</form>
+		    </field>
+		</record>
+		
+		<record id="action_agtis_sefaz_nfe_cancel_view" model="ir.actions.act_window">
+            <field name="name">Motivo do cancelamento</field>
+            <field name="res_model">account.invoice.nfe.sefaz.cancel</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="agtis_sefaz_nfe_cancel_view"/>
+            <field name="target">new</field>
+        </record>
+
+	</data>
+</openerp>

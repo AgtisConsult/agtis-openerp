@@ -1,0 +1,976 @@
+# -*- encoding: utf-8 -*-
+#################################################################################
+#                                                                               #
+# Copyright (C) 2013 Agtis Consultoria                                          #
+#                                                                               #
+#This program is free software: you can redistribute it and/or modify           #
+#it under the terms of the GNU Affero General Public License as published by    #
+#the Free Software Foundation, either version 3 of the License, or              #
+#(at your option) any later version.                                            #
+#                                                                               #
+#This program is distributed in the hope that it will be useful,                #
+#but WITHOUT ANY WARRANTY; without even the implied warranty of                 #
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                  #
+#GNU Affero General Public License for more details.                            #
+#                                                                               #
+#You should have received a copy of the GNU Affero General Public License       #
+#along with this program.  If not, see <http://www.gnu.org/licenses/>.          #
+#################################################################################
+
+
+
+from lxml import etree
+from lxml.etree import ElementTree
+from lxml.etree import Element, SubElement
+from osv import fields, osv
+import decimal_precision as dp
+import re, string
+from unicodedata import normalize
+import netsvc
+import base64
+import libxml2
+import sys, os
+LOGGER = netsvc.Logger()
+
+
+class nfe_email(osv.osv):
+    _name="account.nfe.email"
+    _description="Email de NF-e"
+    _inherit="mail.thread"
+    _rec_name="id"
+
+
+    def message_new(self, cr, uid, msg_dict, custom_values=None, context=None)
+	ret = super(nfe_email, self).message_new(cr, uid, msg_dict, custom_values=custom_values, context=context)
+	# msg_dict é um dict com todos os dados da mensagem inclusive os anexos
+	anexo = ''
+	self.import_nfe_for_athachment(cr, uid, context=context, athachment= base64.b64decode(anexo))
+        return ret
+
+
+    def message_update(self, cr, uid, ids, msg_dict, vals={}, default_act=None, context=None):
+	ret = super(nfe_email, self).message_new(cr, uid, ids, msg_dict, vals=vals, default_act=default_act, context=context)
+	# msg_dict é um dict com todos os dados da mensagem inclusive os anexos
+	anexo = ''
+	self.import_nfe_for_athachment(cr, uid, context=context, athachment= base64.b64decode(anexo))
+        return ret
+
+#    def process_email_nfe(self,cr,uid,ids,context=None):
+#        att_obj = self.pool.get('ir.attachment')
+#        email = self.pool.get('mail.message').browse(cr,uid,context.get('active_id',False))
+#
+#        if email:
+#            pass
+#             att_ids=att_obj.search(cr,uid,args=[('res_model','=','account.nfe.email'),('res_id','=',email.res_id)])
+#             atts=att_obj.browse(cr,uid,att_ids)
+#             for att in atts:
+#                 self.import_nfe_for_athachment(cr, uid, context=context, athachment= base64.b64decode(att.datas))
+
+    def import_nfe_for_athachment(self,cr,uid,context=None,athachment=None):
+        cfop_obj = self.pool.get('l10n_br_account.cfop')
+        fo_obj = self.pool.get('l10n_br_account.fiscal.operation')
+        fc_obj = self.pool.get('account.product.fiscal.classification')
+        
+        try:
+            LOGGER.notifyChannel(
+                                 _("agtis_nfe_industrialization"),
+                                 netsvc.LOG_INFO,
+                                 _("Init NFe import"))
+            
+            obj_user = self.pool.get('res.users').browse(cr, uid, [uid], context=context)[0]
+            for company in obj_user.company_ids:
+            
+                xml_doc = libxml2.parseDoc(athachment)
+            
+                xmlcontext_nfe = xml_doc.xpathNewContext()
+                xmlcontext_nfe.xpathRegisterNs('nfe', 'http://www.portalfiscal.inf.br/nfe')
+                
+                #Informações da Nota Fical 
+                nNF = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:ide/nfe:nNF")[0].content
+                mod = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:ide/nfe:mod")[0].content
+                serie = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:ide/nfe:serie")[0].content
+                tpNF = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:ide/nfe:tpNF")[0].content
+                natOp = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:ide/nfe:natOp")[0].content
+                dEmi = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:ide/nfe:dEmi")[0].content
+                
+                #Informações do Emitente
+                emit_CNPJ = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:CNPJ")[0].content
+                emit_IE = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:IE")[0].content
+                xFant = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:xFant")[0].content
+                xNome = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:xNome")[0].content
+                xLgr = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:enderEmit/nfe:xLgr")[0].content
+                nro = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:enderEmit/nfe:nro")[0].content
+                xBairro = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:enderEmit/nfe:xBairro")[0].content
+                cMun = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:enderEmit/nfe:cMun")[0].content
+                CEP = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:enderEmit/nfe:CEP")[0].content
+                fone = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:emit/nfe:enderEmit/nfe:fone")[0].content
+                
+                #Itens da nota
+                itens_nota = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:det")
+                
+                
+                
+                #Informações do Destinatario
+                dest_CNPJ = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:NFe/nfe:infNFe/nfe:dest/nfe:CNPJ")[0].content
+            
+                
+                #Dados do processamento da NFe na receita
+                chNFe = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:protNFe/nfe:infProt/nfe:chNFe")[0].content
+                dhRecbto = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:protNFe/nfe:infProt/nfe:dhRecbto")[0].content
+                xMotivo = xmlcontext_nfe.xpathEval("/nfe:nfeProc/nfe:protNFe/nfe:infProt/nfe:xMotivo")[0].content
+                
+                obj_invoice = self.pool.get('account.invoice')
+                obj_partner = self.pool.get('res.partner')
+            
+                
+                emit_CNPJ = re.sub('[^0-9]', '', emit_CNPJ)
+                if len(emit_CNPJ) == 14:
+                    emit_CNPJ = "%s.%s.%s/%s-%s" % (emit_CNPJ[0:2], emit_CNPJ[2:5], emit_CNPJ[5:8], emit_CNPJ[8:12], emit_CNPJ[12:14])
+                    
+                dest_CNPJ = re.sub('[^0-9]', '', dest_CNPJ)
+                if len(dest_CNPJ) == 14:
+                    dest_CNPJ = "%s.%s.%s/%s-%s" % (dest_CNPJ[0:2], dest_CNPJ[2:5], dest_CNPJ[5:8], dest_CNPJ[8:12], dest_CNPJ[12:14])
+            
+                
+                if company.partner_id.cnpj_cpf == dest_CNPJ:
+                    
+                    list_ids= obj_partner.search(cr,uid,args=[('cnpj_cpf','=',emit_CNPJ)])
+                    
+                    #CADASTRO DO NOVO CLIENTE
+                    
+                    if not list_ids:
+                        vals = {'name':xFant,
+                                'legal_name':xNome,
+                                'cnpj_cpf':emit_CNPJ,
+                                'costomer':True,
+                                'supplier':True,
+                                'inscr_est':emit_IE}
+                        partner_id = obj_partner.create(cr,uid,vals=vals)
+            
+                        cr.execute("""SELECT
+                                        id city_id
+                                        ,state_id
+                                        FROM l10n_br_base_city
+                                        WHERE ibge_code = '%s'
+                                        AND state_id = (SELECT id 
+                                                          FROM res_country_state
+                                                         WHERE ibge_code = '%s'
+                                                          )""" %(cMun[2:],cMun[0:2]) ) 
+                        
+                        state_city = cr.dictfetchone()
+                        
+                        vals = {'type':'default',
+                                'street':xLgr,
+                                'number':nro,
+                                'district':xBairro,
+                                'zip':CEP,
+                                'country_id':32,#id do brasil
+                                'phone':fone,
+                                'state_id':state_city['state_id'],
+                                'l10n_br_city_id':state_city['city_id'],
+                                'partner_id':partner_id,
+                                }
+                        obj_address = self.pool.get('res.partner.address')
+                        obj_address.create(cr,uid,vals=vals)
+                    else:
+                        partner_id = list_ids[0]
+            
+                    
+                    
+                    #CRIANDO FATURA DE ENTRADA
+                    
+            
+                    cr.execute(""" SELECT 
+                                     (SELECT id FROM res_partner_address WHERE partner_id = rp.id LIMIT 1) address,
+                                     (SELECT id FROM l10n_br_account_fiscal_document WHERE code = '55') fd
+                                     FROM res_partner rp
+                                     WHERE id = %s""" % (partner_id))
+            
+                    query_result = cr.dictfetchone()
+                    address = query_result['address']
+                    fd = query_result['fd']
+            
+                    
+                    foc_id_capa = False
+                    fo_id_capa = False
+                    
+                    obj_journal = self.pool.get('account.journal')
+                    obj_account = self.pool.get('account.account')
+                    obj_currency = self.pool.get('res.currency')
+                    journal_id = obj_journal.search(cr,uid,args=[('name','like','%Diário de compras%')])
+                    account_id = obj_account.search(cr,uid,args=[('name','like','%Fornecedores Nacionais%')])
+                    curruency_id = obj_currency.search(cr,uid,args=[('name','like','%BRL%')])
+            
+                    
+                    
+                    vals = {'journal_id':journal_id[0],
+                            'internal_number':nNF,
+                            'vendor_serie':serie,
+                            'partner_id':partner_id,
+                            'address_invoice_id': address,
+                            'own_invoice':False,
+                            'account_id':account_id[0],#id conta padrao
+                            'currency_id':curruency_id[0],# id moeda brasileira
+                            'state':'draft',
+                            'company_id':company.id,
+                            'fiscal_type':'product',
+                            'nfe_access_key':chNFe,
+                            'nfe_status':xMotivo,
+                            'nfe_export_date':dhRecbto,
+                            'fiscal_document_id':fd,
+                            }
+                    invoice_id = obj_invoice.create(cr,uid,vals=vals,context={'type':'in_invoice'})
+                    invoice = obj_invoice.browse(cr,uid,invoice_id)
+                    
+                    
+                    
+                    obj_product = self.pool.get('product.product')
+                    obj_invoice_line = self.pool.get('account.invoice.line')
+                    obj_supplier = self.pool.get('product.supplierinfo')
+                    obj_uom = self.pool.get('product.uom')
+            
+                    for item in itens_nota:
+                        
+                        xmlcontext_nfe.setContextNode(item)
+                        
+                        xProd = xmlcontext_nfe.xpathEval("nfe:prod/nfe:xProd")[0].content
+                        cProd = xmlcontext_nfe.xpathEval("nfe:prod/nfe:cProd")[0].content
+                        
+                        NCM = xmlcontext_nfe.xpathEval("nfe:prod/nfe:NCM")[0].content
+                        
+                        #VERIFICA E CRIA CLASSIFICAÇÃO FISCAL
+                        fc_id = False
+                        cr.execute(""" SELECT id
+                                                    FROM account_product_fiscal_classification
+                                                    WHERE replace(name,'.','') like '%s'
+                                                    """ % NCM)
+                        fc_id = cr.dictfetchone()
+                        if fc_id:
+                            fc_id = fc_id['id']
+                        else:
+                            fc_id = fc_obj.create(cr, uid, {'name':NCM,
+                                                            'description':NCM,
+                                                            'company_id':company.id
+                                                            })
+                        
+                         
+                        #VERIFICA E CRIA UNIDADE DE MEDIDA
+                        unidade = xmlcontext_nfe.xpathEval("nfe:prod/nfe:uCom")[0].content
+                        
+                        uom_id = obj_uom.search(cr,uid,args = [('name','=',unidade)])
+                        
+                        if not uom_id :
+                            uom_id = obj_uom.create(cr,uid,{'category_id':1,
+                                                             'name':unidade,
+                                                             'rounding':1.0,
+                                                             'factor':1.0})
+                        else:
+                            uom_id =  uom_id[0]
+                        
+            
+                        #VERIFICA E CRIA  PRODUTOS
+                        cr.execute("""SELECT 
+                                       id
+                                       FROM product_product prod
+                                       WHERE
+                                        default_code = '%s'
+                                         AND (SELECT count(id)
+                                                FROM product_supplierinfo
+                                               WHERE name = %s
+                                                 AND product_code = '%s')>0
+                                      LIMIT 1  """ %(cProd,partner_id,cProd))
+            
+                        
+                        
+                        product_id = cr.dictfetchone()
+            
+                        if not product_id:
+                            prod_vals = {'default_code':cProd,
+                                         'name': xProd,
+                                         'property_fiscal_classification':fc_id,
+                                         'uom_id':uom_id,
+                                         'uom_po_id':uom_id,
+                                         }
+                            product_id = obj_product.create(cr,uid,prod_vals)
+                            product = obj_product.browse(cr,uid,product_id)
+            
+                            supplier_vals = {'name':partner_id,
+                                            'product_id':product.product_tmpl_id.id,
+                                            'min_qty':0,
+                                            'delay':1,
+                                            'product_code':cProd,
+                                            'product_name':xProd,}
+                            
+                            obj_supplier.create(cr,uid,supplier_vals)
+            
+                        else:
+                            product = obj_product.browse(cr,uid,product_id['id'])
+                            product.write({'name':xProd,
+                                           'property_fiscal_classification':fc_id})
+            
+                        #CRIANDO LINHAS DA FATURA
+                        
+                        foc_id = False
+                        fo_id = False
+                        cfop_id= False
+                        
+                        cfop = xmlcontext_nfe.xpathEval("nfe:prod/nfe:CFOP")[0].content
+                        if cfop[0:1] in '567':
+                            if cfop[0:1]=='5': cfop='1'+cfop[1:]
+                            if cfop[0:1]=='6': cfop='2'+cfop[1:]
+                            if cfop[0:1]=='7': cfop='3'+cfop[1:]
+                        
+                                
+                            
+                        cfop_id = cfop_obj.search(cr, uid, args=[('code','=',cfop)])
+                        if cfop_id:
+                            cfop_id=cfop_id[0]
+                        print "cfop=%s,cfop_id=%s" % (cfop,cfop_id)
+                        if cfop in ['1901','2901','3901']:
+                            
+                            fo_id = fo_obj.search(cr, uid, args=[('cfop_id','=',cfop_id)])
+                            if fo_id:
+                                if isinstance(fo_id, list):
+                                    fo_id = fo_id[0]
+                                fo_brw = fo_obj.browse(cr,uid,fo_id)
+                                foc_id = fo_brw.fiscal_operation_category_id.id
+                            foc_id_capa = foc_id
+                            fo_id_capa = fo_id
+                        
+                        icms_tipo = xmlcontext_nfe.xpathEval("nfe:imposto/nfe:ICMS")[0].children
+                        ipi_tipo = xmlcontext_nfe.xpathEval("nfe:imposto/nfe:IPI")[0]
+                        pis_tipo = xmlcontext_nfe.xpathEval("nfe:imposto/nfe:PIS")[0].children
+                        cofins_tipo = xmlcontext_nfe.xpathEval("nfe:imposto/nfe:COFINS")[0].children
+            
+                        
+                        
+                        cst_icms_st, base_calc_icms_st, val_icms_st, aliq_icms_st = [None,None,None,None]
+                        cst_icms, base_calc_icms,val_icms, aliq_icms = [None,None,None,None]
+                        cst_ipi, base_calc_ipi, val_ipi,aliq_ipi = [None,None,None,None]
+                        cst_pis, base_calc_pis, val_pis,aliq_pis = [None,None,None,None]
+                        cst_cofins, base_calc_cofins, val_cofins,aliq_cofins = [None,None,None,None]
+                        
+                        for item_icms in icms_tipo:
+                            if icms_tipo.name == "ICMSST":
+                                if item_icms.name == "CSOSN" or item_icms.name == "CST":
+                                    cst_icms_st = item_icms.content
+                                if item_icms.name == "vBCSTRet":
+                                    base_calc_icms_st = item_icms.content
+                                if item_icms.name == "vICMSSTRet":
+                                    val_icms_st = item_icms.content
+                                if item_icms.name == "pICMS":
+                                    aliq_icms_st = item_icms.content
+                            else:
+                                
+                                if item_icms.name == "CSOSN" or item_icms.name == "CST":
+                                    cst_icms = item_icms.content
+                                if item_icms.name == "vBC":
+                                    base_calc_icms = item_icms.content
+                                if item_icms.name == "vICMS":
+                                    val_icms = item_icms.content
+                                if item_icms.name == "pICMS":
+                                    aliq_icms = item_icms.content
+                        
+                               
+                        for item_ipi in ipi_tipo:
+                            if item_ipi.name == "IPINT" or item_ipi.name == "IPITrib ":
+                                for  values in item_ipi:
+                                    if values.name == "CST":
+                                        cst_ipi = values.content
+                                    if values.name == "vBC":
+                                        base_calc_ipi = values.content
+                                    if values.name == "vIPI":
+                                        val_ipi = values.content
+                                    if values.name == "pIPI":
+                                        aliq_ipi = values.content
+                                break
+                        
+                        for item_pis in pis_tipo:
+                            if item_pis.name == "CST":
+                                cst_pis = item_pis.content
+                            if item_pis.name == "vBC":
+                                base_calc_pis = item_pis.content
+                            if item_pis.name == "vPIS":
+                                val_pis = item_pis.content
+                            if item_pis.name == "pPIS":
+                                aliq_pis = item_pis.content
+                                
+                        for item_cofins in cofins_tipo:
+                            if item_cofins.name == "CST":
+                                cst_cofins = item_cofins.content
+                            if item_cofins.name == "vBC":
+                                base_calc_cofins = item_cofins.content
+                            if item_cofins.name == "vCOFINS":
+                                val_cofins = item_cofins.content
+                            if item_cofins.name == "pCOFINS":
+                                aliq_cofins = item_cofins.content
+                        
+                        
+                        quantity = float(xmlcontext_nfe.xpathEval("nfe:prod/nfe:qCom")[0].content)
+                        price_unit = float(xmlcontext_nfe.xpathEval("nfe:prod/nfe:vUnCom")[0].content)
+                        per_discount = 0
+                        val_discount = 0
+                        #try:
+                        #    val_discount = float(xmlcontext_nfe.xpathEval("nfe:prod/nfe:vDesc")[0].content)
+                        #    per_discount =   float(val_discount / (quantity * price_unit))
+                        #except (RuntimeError, TypeError, NameError, Exception):
+                        #    print "-------------- Erro buscando o desconto"
+                        #    pass
+                        
+                        
+                        price_subtotal = (quantity * price_unit)-val_discount
+                        price_total = quantity * price_unit
+                        account_line_id = obj_account.search(cr,uid,args=[('name','like','%Custo dos Produtos Acabados%')])
+                        line_vals = {'product_id':product.id,
+                                     'name':product.name,
+                                     'quantity':quantity,
+                                     'price_unit':price_unit,
+                                     'discount':per_discount,
+                                     'price_subtotal': price_subtotal,
+                                     'price_total': price_total,
+                                     'invoice_id': invoice.id,
+                                     'fiscal_operation_category_id':foc_id,
+                                     'fiscal_operation_id':fo_id,
+                                     'cfop_id':cfop_id,
+                                     'account_id':account_line_id, 
+                                     'uos_id':uom_id,
+                                     'calculate_taxes':False
+                                     }
+                        #TODO: colocar conta certa aqui
+
+                        
+                        line_id = obj_invoice_line.create(cr,uid,line_vals)
+                        
+                        invoice_line = obj_invoice_line.browse(cr,uid,line_id)
+
+                        
+                        fiscal_values = {   'icms_cst':cst_icms,
+                                             'icms_base':base_calc_icms,
+                                             'icms_value':val_icms,
+                                             'icms_percent': aliq_icms,
+                                             'icms_st_cst':cst_icms_st,
+                                             'icms_st_base':base_calc_icms_st,
+                                             'icms_st_value':val_icms_st,
+                                             'icms_st_percent':aliq_icms_st,
+                                             'ipi_cst':cst_ipi,
+                                             'ipi_base':base_calc_ipi,
+                                             'ipi_value':val_ipi,
+                                             'ipi_percent': aliq_ipi,
+                                             'pis_cst':cst_pis,
+                                             'pis_base':base_calc_pis,
+                                             'pis_value':val_pis,
+                                             'pis_percent':aliq_pis,
+                                             'cofins_cst':cst_cofins,
+                                             'cofins_base':base_calc_cofins,
+                                             'cofins_value':val_cofins,
+                                             'cofins_percent': aliq_cofins,
+                                             'fiscal_operation_category_id':foc_id,
+                                             'fiscal_operation_id':fo_id,
+                                             'cfop_id':cfop_id,
+                                             }
+
+                        invoice_line.write(fiscal_values)
+                    if foc_id_capa:
+            
+                        invoice.write({                    
+                            'fiscal_operation_category_id':foc_id_capa,
+                            'fiscal_operation_id':fo_id_capa,
+                            })
+                        
+
+                        
+                
+
+        except Exception, e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            LOGGER.notifyChannel(
+                                 _("agtis_nfe_industrialization"),
+                                 netsvc.LOG_ERROR,
+                                 _("Error Importing NFe: %s\nTipo: %s\nArquivo: %s\nLinha %s) " % (str(e), exc_type, fname , exc_tb.tb_lineno))
+                                )
+nfe_email()
+
+
+
+class invoice(osv.osv):
+    _inherit = "account.invoice"
+    
+
+    
+    def _get_agtis_industry_values(self, cr, uid, ids, field_name, arg, context):
+        res = {}
+        inv_brw = self.browse(cr, uid, ids)
+        for inv in inv_brw:
+            
+            inv_is_shipment = False
+            inv_is_return = False
+            inv_is_charging = False
+            
+            res[inv.id] = {}
+            
+            res[inv.id]['ind_shipment_invoice_ids'] = []
+            res[inv.id]['ind_return_invoice_ids'] = []
+            res[inv.id]['ind_charging_invoice_ids'] = []
+            
+            # para ver o que é a nota em questão (remessa, retorno, cobrança, outros)            
+            for cfop in inv.cfop_ids:
+                if cfop.code in ['1901','2901','3901']:
+                    inv_is_shipment = True
+                if cfop.code in ['5902','6902','7902','5903','6903','7903']:
+                    inv_is_return = True
+                if cfop.code in ['5124','6124','7124']:
+                    inv_is_charging = True
+                    
+            res[inv.id]['ind_is_shipment'] = inv_is_shipment
+            res[inv.id]['ind_is_return'] = inv_is_return
+            res[inv.id]['ind_is_charging'] = inv_is_charging
+        
+            for rel_ind_inv in inv.ind_invoice_ids:
+                 
+                # tem retorno
+                has_return = False
+                # tem cobranca
+                has_charge = False
+                
+                for cfop in rel_ind_inv.cfop_ids:
+                    if cfop.code in ['1901','2901','3901']:
+                        res[inv.id]['ind_shipment_invoice_ids'].append(rel_ind_inv.id)
+                    if cfop.code in ['5902','6902','7902','5903','6903','7903']:
+                        
+                        has_return = True
+                        res[inv.id]['ind_return_invoice_ids'].append(rel_ind_inv.id)
+                    if cfop.code in ['5124','6124','7124']:
+                        has_charge = True
+                        res[inv.id]['ind_charging_invoice_ids'].append(rel_ind_inv.id)
+                
+                res[inv.id]['ind_return_state'] = ''
+                res[inv.id]['ind_charging_state'] = ''
+                
+                if inv_is_shipment:
+                    if has_return:
+                        # retornada
+                        res[inv.id]['ind_return_state'] = 'returned'  
+                    else:
+                        # sem retorno
+                        res[inv.id]['ind_return_state'] = 'no_return'
+                if inv_is_return:
+                    if has_charge:
+                        # cobrada
+                        res[inv.id]['ind_charging_state'] = 'charged'
+                    else:
+                        # sem cobrança
+                        res[inv.id]['ind_charging_state'] = 'no_charge'
+            
+
+        
+        return res
+            
+    _columns = {
+        'ind_invoice_ids':fields.many2many(
+                        'account.invoice',
+                        'account_invoice_industry_rel',
+                        'actual_invoice_id',
+                        'other_invoice_id',
+                        'Faturas Relacionadas - Industrialização'
+                        ),
+        'ind_shipment_invoice_ids': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'one2many',
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Faturas de entrada p/ industrialização',
+                                    multi='agtis_industry'
+                                                    ),
+            
+        'ind_return_invoice_ids': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'one2many',
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Faturas de retorno',
+                                    multi='agtis_industry'
+                                                    ),
+                
+        'ind_charging_invoice_ids': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'one2many',
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Faturas de Cobrança',
+                                    multi='agtis_industry'
+                                                    ),
+        'ind_return_state': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'char',
+                                    size = 32,
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Status',
+                                    multi='agtis_industry'
+                                                    ),
+        'ind_charging_state': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'char',
+                                    size = 32,
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Status',
+                                    multi='agtis_industry'
+                                                    ),
+                
+        'ind_is_shipment': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'boolean',
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Status',
+                                    multi='agtis_industry'
+                                                    ),
+                
+        'ind_is_return': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'boolean',
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Status',
+                                    multi='agtis_industry'
+                                                    ),
+                
+        'ind_is_charging': fields.function(
+                                    _get_agtis_industry_values,
+                                    type = 'boolean',
+                                    obj = 'account.invoice',
+                                    method = True,
+                                    string = 'Status',
+                                    multi='agtis_industry'
+                                                    ),
+                
+                }
+    
+    
+    
+    def create_return_invoice(self, cr, uid, ids, context=None):
+        
+
+        if not isinstance(ids, list):
+            ids = [ids]
+        
+        obj_invoice = self.pool.get('account.invoice') 
+        obj_invoice_line = self.pool.get('account.invoice.line') 
+        obj_journal = self.pool.get('account.journal')
+        obj_account = self.pool.get('account.account')
+        obj_serie = self.pool.get('l10n_br_account.document.serie')
+        
+        in_invoice = obj_invoice.browse(cr,uid,ids[0])
+        journal_id = obj_journal.search(cr,uid,args=[('name','like','Diário de vendas')])
+        account_id = obj_account.search(cr,uid,args=[('name','like','Clientes Nacionais')])
+        
+        #TODO: VERIFICAR CONTA PARA RETORNO NAO INDUSTRIALIZADO
+        line_account_id = obj_account.search(cr,uid,args=[('name','like','Industriazalição de Mercadorias')])[0]
+        serie_id = obj_serie.search(cr,uid,args=[('name','like','Serie1')])
+        obj_fo = self.pool.get('l10n_br_account.fiscal.operation')
+        cfop_obj = self.pool.get('l10n_br_account.cfop')
+        
+        fo_id = context.get('fiscal_operation_id',False)
+        if not fo_id:
+            cfop_id = cfop_obj.search(cr,uid,args=[('code','=','5902')])[0]
+            fo_id = obj_fo.search(cr,uid,args=[('cfop_id','=',cfop_id)])[0]  
+        fo_brw = obj_fo.browse(cr,uid,fo_id)
+        cfop_id = fo_brw.cfop_id.id
+        
+        vals = {'journal_id':journal_id[0],
+                'document_serie_id':serie_id[0],
+                'partner_id':in_invoice.partner_id.id,
+                'address_invoice_id': in_invoice.address_invoice_id.id,
+                'own_invoice':True,
+                'account_id':account_id[0],#id conta padrao
+                'currency_id':in_invoice.currency_id.id,# id moeda brasileira
+                'state':'draft',
+                'company_id':in_invoice.company_id.id,
+                'fiscal_type':'product',
+                'fiscal_document_id':in_invoice.fiscal_document_id.id,
+                'fiscal_operation_category_id':fo_brw.fiscal_operation_category_id.id,
+                'fiscal_operation_id':fo_id,
+                }
+
+        out_invoice_id = obj_invoice.create(cr,uid,vals=vals,context={'type':'out_invoice'})
+        out_invoice = obj_invoice.browse(cr,uid,out_invoice_id)
+        
+        out_invoice.write({'ind_invoice_ids':[(4, in_invoice.id)]})
+        in_invoice.write({'ind_invoice_ids':[(4, out_invoice.id)]})
+                    
+        for line in in_invoice.invoice_line:
+            
+            line_vals = {
+                'product_id':line.product_id.id,
+                'name':line.product_id.name,
+                'quantity':line.quantity,
+                'price_unit':line.price_unit,
+                'discount':line.discount,
+                'price_subtotal': line.price_subtotal,
+                'price_total': line.price_total,
+                'invoice_id': out_invoice.id,
+                'fiscal_operation_category_id':fo_brw.fiscal_operation_category_id.id,
+                'fiscal_operation_id':fo_id,
+                'cfop_id':fo_brw.cfop_id.id,
+                'account_id':line_account_id,
+                'calculate_taxes':False,
+                'uos_id':line.uos_id.id,
+                
+
+            }
+            #TODO: REVISAR CAMPOS DE IMPOSTOS A PARTIR DA TELA DE L10N_BR IMPOSTOS NO ITENS
+            new_line_id = obj_invoice_line.create(cr,uid,line_vals)
+            new_line_brw = obj_invoice_line.browse(cr,uid,new_line_id)
+            
+
+            new_line_brw.write({
+                'icms_cst':line.icms_cst,
+                'icms_base':line.icms_base,
+                'icms_value':line.icms_value,
+                'icms_percent':line.icms_percent,
+                #'icms_st_cst':line.icms_st_cst,
+                'icms_st_base':line.icms_st_base,
+                'icms_st_base_other':line.icms_st_base_other,
+                #'line.icms_st_base_type':line.icms_st_base_type,
+                'icms_st_value':line.icms_st_value,
+                'icms_st_percent':line.icms_st_percent,
+                #'icms_st_percent_reduction':line.icms_st_percent_reduction,
+                'ipi_cst':line.ipi_cst,
+                'ipi_base':line.ipi_base,
+                'ipi_value':line.ipi_value,
+                'ipi_percent':line.ipi_percent,
+                'pis_cst':line.pis_cst,
+                'pis_base':line.pis_base,
+                'pis_value':line.pis_value,
+                'pis_percent':line.pis_percent,
+                'cofins_cst':line.cofins_cst,
+                'cofins_base':line.cofins_base,
+                'cofins_value':line.cofins_value,
+                'cofins_percent':line.cofins_percent,}) 
+            
+
+            view_id = self.pool.get('ir.ui.view').search(cr,uid,[('name', '=', 'account.invoice.form')])
+            
+            return {'type':'ir.actions.act_window',
+                    'res_model': 'account.invoice',
+                    'name':'Retorno de industrialização',
+                    'res_id':out_invoice.id,
+                    'view_id':view_id,
+                    'view_type':'form',
+                    'view_mode':'form',
+                    'context':{'type':'out_invoice', 'journal_type':'sale'}}
+            
+            
+    def create_charging_invoice(self, cr, uid, ids, context=None):
+
+        if not isinstance(ids, list):
+            ids = [ids]
+        
+        obj_invoice = self.pool.get('account.invoice')  
+        obj_fo = self.pool.get('l10n_br_account.fiscal.operation')
+        cfop_obj = self.pool.get('l10n_br_account.cfop')
+        fo_id = context.get('fiscal_operation_id',False)
+
+        if not fo_id:
+            cfop_id = cfop_obj.search(cr,uid,args=[('code','=','5124')])[0]
+            fo_id = obj_fo.search(cr,uid,args=[('cfop_id','=',cfop_id)])[0]  
+        fo_brw = obj_fo.browse(cr,uid,fo_id)
+        cfop_id = fo_brw.cfop_id.id
+        
+        vals = {'fiscal_operation_category_id':fo_brw.fiscal_operation_category_id.id,
+                'fiscal_operation_id':fo_id}
+        
+        return_invoice = obj_invoice.browse(cr,uid,ids[0])
+        
+        charging_id = obj_invoice.copy(cr,uid,return_invoice.id,default = vals)
+        
+        charding_invoice = obj_invoice.browse(cr,uid,charging_id)
+        
+        
+        
+        for line in charding_invoice.invoice_line:
+            line.write({
+                'calculate_taxes': True,
+                #'price_total': ((line.quantity * line.price_unit) - line.discount) ,   
+                #'price_subtotal': (line.quantity * line.price_unit) ,
+                'fiscal_operation_category_id': fo_brw.fiscal_operation_category_id.id,
+                'fiscal_operation_id':fo_id,
+                'icms_cst':'900',
+                'ipi_cst':'99',
+                'pis_cst':'99',
+                #'pis_base': 0,
+                #'pis_percent':0,
+                'cofins_cst':'99',
+                #'cofins_base':0,
+                #'cofins_percent':0,
+                'cfop_id':fo_brw.cfop_id.id,}) 
+            
+        charding_invoice.write({'ind_invoice_ids':[(4, return_invoice.id)]})
+        return_invoice.write({'ind_invoice_ids':[(4, charding_invoice.id)]})
+            
+        view_id = self.pool.get('ir.ui.view').search(cr,uid,[('name', '=', 'account.invoice.form')])
+        return {'type':'ir.actions.act_window',
+                    'res_model': 'account.invoice',
+                    'name':'Cobrança de industrialização',
+                    'res_id':charding_invoice.id,
+                    'view_id':view_id,
+                    'view_type':'form',
+                    'view_mode':'form',
+                    'context':{'type':'out_invoice', 'journal_type':'sale'}}
+          
+
+invoice()
+
+
+class account_invoice_line(osv.osv):
+    _inherit = "account.invoice.line"
+    
+    def _amount_line_ex(self, cr, uid, ids, prop, unknow_none, unknow_dict):
+        res = super(account_invoice_line,self)._amount_line(cr, uid, ids, prop, unknow_none, unknow_dict)        
+        for line in self.browse(cr,uid,ids):
+            if (not line.invoice_id.own_invoice) or (not line.calculate_taxes):
+                cr.execute("""             
+                    SELECT 
+                        cofins_base    ,
+                        cofins_base_other    ,
+                        cofins_cst    ,
+                        cofins_percent    ,
+                        cofins_value    ,
+                        icms_base    ,
+                        icms_base_other    ,
+                        icms_cst    ,
+                        icms_percent    ,
+                        icms_percent_reduction    ,
+                        icms_st_base    ,
+                        icms_st_base_other    ,
+                        icms_st_mva    ,
+                        icms_st_percent    ,
+                        icms_st_value    ,
+                        icms_value    ,
+                        ipi_base    ,
+                        ipi_base_other    ,
+                        ipi_cst    ,
+                        ipi_percent    ,
+                        ipi_type    ,
+                        ipi_value    ,
+                        pis_base    ,
+                        pis_base_other    ,
+                        pis_cst    ,
+                        pis_percent    ,
+                        pis_value    ,
+                        price_subtotal,
+                        price_total
+                    FROM account_invoice_line
+                    WHERE id=%s
+                """ % (line.id ) )
+                ret_line = cr.dictfetchone()
+                res[line.id].update(ret_line)                    
+        return res
+    
+    def _amount_line_write_ex(self, cr, uid, ids, prop, values, unknow_none, unknow_dict):
+        
+        if isinstance(values, unicode) or isinstance(values, str):
+            valupd = "'" + values + "'"
+        else:
+            valupd = values
+            
+        
+        upd_cmd = """
+            UPDATE account_invoice_line
+            SET %s=%s
+            WHERE id=%s
+        """ % (prop,valupd or 'NULL' ,ids)
+        cr.execute(upd_cmd)
+        
+    
+    _columns = {
+                'calculate_taxes': fields.boolean('Calcular os Impostos'),
+                'price_subtotal': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Subtotal', type="float",
+                                                  digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'price_total': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Total', type="float",
+                                               digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_base': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base ICMS', type="float",
+                                             digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_base_other': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base ICMS Outras', type="float",
+                                             digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_value': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Valor ICMS', type="float",
+                                              digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_percent': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Perc ICMS', type="float",
+                                                digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_percent_reduction': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Perc Redução de Base ICMS', type="float",
+                                                digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_st_value': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Valor ICMS ST', type="float",
+                                              digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_st_base': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base ICMS ST', type="float",
+                                              digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_st_percent': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Percentual ICMS ST', type="float",
+                                              digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_st_mva': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='MVA ICMS ST', type="float",
+                                              digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_st_base_other': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base ICMS ST Outras', type="float",
+                                              digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'icms_cst': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='CST ICMS', type="char", size=3,
+                                              store=True, multi='all'),
+                'ipi_type': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Tipo do IPI', type="char", size=64,
+                                              store=True, multi='all'),
+                'ipi_base': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base IPI', type="float",
+                                            digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'ipi_base_other': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base IPI Outras', type="float",
+                                            digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'ipi_value': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Valor IPI', type="float",
+                                                  digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'ipi_percent': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Perc IPI', type="float",
+                                               digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'ipi_cst': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='CST IPI', type="char", size=2,
+                                           store=True, multi='all'),
+                'pis_base': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base PIS', type="float",
+                                                  digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'pis_base_other': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base PIS Outras', type="float",
+                                                  digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'pis_value': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Valor PIS', type="float",
+                                             digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'pis_percent': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Perc PIS', type="float",
+                                               digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'pis_cst': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='CST PIS', type="char", size=2,
+                                           store=True, multi='all'),
+                'cofins_base': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base COFINS', type="float",
+                                               digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'cofins_base_other': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Base COFINS Outras', type="float",
+                                               digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'cofins_value': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Valor COFINS', type="float",
+                                                digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'cofins_percent': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Perc COFINS', type="float",
+                                                  digits_compute= dp.get_precision('Account'), store=True, multi='all'),
+                'cofins_cst': fields.function(_amount_line_ex, fnct_inv=_amount_line_write_ex, method=True, string='Valor COFINS', type="char", size=2,
+                                              store=True, multi='all'),
+    }
+    _defaults = {
+                 'calculate_taxes': True,
+                 }
+    
+    def copy(self,cr, uid, id, default=None, context=None):
+        default = default or {}
+        line = self.browse(cr, uid, id)
+        default.update({
+            'price_total':line.price_total,
+            'price_subtotal':line.price_subtotal,
+            'discount':line.discount,
+        })
+        return super(account_invoice_line, self).copy(cr, uid, id, default, context)
+    
+    
+    def uos_id_change(self, cr, uid, ids, product, uom, qty=0, name='', type='out_invoice', partner_id=False, fposition_id=False, price_unit=False, address_invoice_id=False, currency_id=False, context=None, company_id=None,fiscal_operation_category_id=None,fiscal_operation_id=None):
+
+        if context is None:
+            context = {}   
+        result =  super(account_invoice_line, self).uos_id_change( cr, uid, ids, product, uom, qty, name, type, partner_id, fposition_id, price_unit, address_invoice_id, currency_id, context, company_id)
+        result['values']['fiscal_operation_id'] = fiscal_operation_id
+        result['values']['fiscal_operation_category_id'] = fiscal_operation_category_id
+        if fiscal_operation_id:
+            cfop_id = self.pool.get('l10n_br_account.fiscal.operation').browse(cr,uid,fiscal_operation_id).cfop_id.id
+        result['values']['cfop_id'] = cfop_id
+        
+        return result
+account_invoice_line()

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+	<data>
+		
+        <delete id="l10n_br_account.tras_sefaz_export_open" model="workflow.transition" /> 
+		
+		<record id="act_router" model="workflow.activity"> 
+            <field name="wkf_id" ref="account.wkf"/> 
+            <field name="name">router</field> 
+            <field name="action">nfe_check()
+button_reset_taxes()
+action_date_assign()
+action_internal_number()
+action_move_create()
+action_number()</field> 
+            <field name="kind">function</field> 
+        </record>
+		
+		
+		
+		
+        <record id="act_sefaz_out" model="workflow.activity"> 
+            <field name="wkf_id" ref="account.wkf"/> 
+            <field name="name">sefaz_out</field> 
+            <field name="action">write({'state':'sefaz_out'})</field> 
+            <field name="kind">function</field> 
+        </record>
+
+        <record id="act_sefaz_cancel" model="workflow.activity"> 
+            <field name="wkf_id" ref="account.wkf"/> 
+            <field name="name">sefaz_cancel</field> 
+            <field name="kind">function</field> 
+            <field name="action">write({'state':'sefaz_cancel'})</field>
+            <field name="flow_stop">True</field>
+        </record>
+
+        <record id="tras_open_sefaz_cancel" model="workflow.transition"> 
+            <field name="act_from" ref="account.act_open"/> 
+            <field name="act_to" ref="act_sefaz_cancel"/>          
+            <field name="condition">fiscal_document_nfe == True and own_invoice == True</field> 
+            <field name="signal">sefaz_cancel_authorized</field> 
+        </record> 
+
+        <record id="tras_sefaz_out_open" model="workflow.transition"> 
+            <field name="act_from" ref="act_sefaz_out"/> 
+            <field name="act_to" ref="account.act_open"/>          
+            <field name="condition">True</field> 
+            <field name="signal">sefaz_authorized</field> 
+        </record> 
+
+        <record id="tras_open_route_cancel" model="workflow.transition"> 
+            <field name="act_from" ref="account.act_open"/> 
+            <field name="act_to" ref="account.act_cancel"/>
+            <field name="condition">fiscal_document_nfe == False or own_invoice == False</field>
+            <field name="signal">invoice_cancel</field>
+        </record>
+        
+        <record id="tras_sefaz_export_out" model="workflow.transition"> 
+            <field name="act_from" ref="l10n_br_account.act_sefaz_export"/> 
+            <field name="act_to" ref="act_sefaz_out"/>          
+            <field name="condition">True</field> 
+            <field name="signal">sefaz_received_xml</field> 
+        </record> 
+        
+        <record id="tras_sefaz_export_open" model="workflow.transition"> 
+            <field name="act_from" ref="l10n_br_account.act_sefaz_export"/> 
+            <field name="act_to" ref="account.act_open"/>          
+            <field name="condition">True</field> 
+            <field name="signal">sefaz_authorized</field> 
+        </record> 
+
+        <record id="act_sefaz_denied" model="workflow.activity"> 
+            <field name="wkf_id" ref="account.wkf"/> 
+            <field name="name">sefaz_denied</field> 
+            <field name="kind">function</field> 
+            <field name="action">write({'state':'sefaz_denied'})</field>
+            <field name="flow_stop">True</field>
+        </record>
+
+        <record id="tras_sefaz_out_sefaz_denied" model="workflow.transition"> 
+            <field name="act_from" ref="act_sefaz_out"/> 
+            <field name="act_to" ref="act_sefaz_denied"/>          
+            <field name="condition">True</field> 
+            <field name="signal">sefaz_denied</field> 
+        </record>
+        
+        <record id="tras_sefaz_export_sefaz_denied" model="workflow.transition"> 
+            <field name="act_from" ref="l10n_br_account.act_sefaz_export"/> 
+            <field name="act_to" ref="act_sefaz_denied"/>          
+            <field name="condition">True</field> 
+            <field name="signal">sefaz_denied</field> 
+        </record>
+
+ 		<record id="l10n_br_account.act_sefaz_exception" model="workflow.activity"> 
+            <field name="action">write({'state':'sefaz_exception'})</field>  
+        </record> 
+        
+        <record id="tras_sefaz_out_sefaz_exception" model="workflow.transition"> 
+            <field name="act_from" ref="act_sefaz_out"/> 
+            <field name="act_to" ref="l10n_br_account.act_sefaz_exception"/>          
+            <field name="condition">True</field> 
+            <field name="signal">invoice_sefaz_exception</field> 
+        </record>
+	</data>
+
+</openerp>

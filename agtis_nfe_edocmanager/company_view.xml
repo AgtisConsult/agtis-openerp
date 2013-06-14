@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+	<data>
+		
+		<record model="ir.ui.view" id="agtis_edoc_company_view">
+		   <field name="name">agtis.edoc.company.view</field>
+		   <field name="model">res.company</field>
+		   <field name="inherit_id" ref="base.view_company_form"/>
+		   <field name="type">form</field>
+		   <field name="arch" type="xml">
+			<xpath expr="/form/notebook" position="inside">
+			    <page string="eDoc Manager">
+				<separator string="Servidor eDoc Manager" colspan="4"/>
+				<field name="edoc_host"/>
+				<field name="edoc_port"/>
+				<field name="edoc_group"/>
+				<newline/>
+				<field name="edoc_user"/>
+				<field name="edoc_password" password="True"/>
+				<newline/>
+				<separator string="Lote NF-e" colspan="4"/>
+				<field name="edoc_nfe_prox_lote"/>
+				<field name="edoc_nfe_environment"/>
+				<newline/>
+				<group colspan="2" rowspan="3" col="2"> 
+					<separator string="Envio NF-e" colspan="2"/>
+					<field name="edoc_nfe_email_subject"/>
+					<field name="edoc_nfe_email_text_send" height="250" />
+				</group>
+				<group colspan="2" rowspan="3" col="2">
+					<separator string="Cancelamento de NF-e" colspan="2"/>
+					<field name="edoc_nfe_email_subject_cancel"/>
+					<field name="edoc_nfe_email_text_cancel" height="250" />	
+				</group>
+			    </page>
+			</xpath>
+		   </field>
+		</record>
+
+
+	</data>
+</openerp>
